@@ -73,6 +73,7 @@ export default function PricingPage() {
 
         {/* Feature comparison — tabbed for all screen sizes */}
         <h2 className="text-xl font-bold text-white mb-5 text-center">Full feature comparison</h2>
+        <p className="text-slate-500 text-xs text-center mb-4">Tap a plan to see its features</p>
 
         {/* Plan selector tabs */}
         <div className="flex rounded-xl border border-slate-800 overflow-hidden mb-4">
