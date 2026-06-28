@@ -61,8 +61,8 @@ const worker = new Worker<AISuggestionsJobPayload>(
     }
   },
   {
-    connection,
-    concurrency: 2, // limit concurrent AI calls
+    connection: connection!,
+    concurrency: 2,
   }
 );
 

@@ -103,7 +103,7 @@ const worker = new Worker<AuditJobPayload>(
     }
   },
   {
-    connection,
+    connection: connection!,
     concurrency: 3,
   }
 );

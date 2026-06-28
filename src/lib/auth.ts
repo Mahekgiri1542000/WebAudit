@@ -3,7 +3,6 @@ import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { Role } from '@prisma/client';
-import { sendWelcomeEmail } from '@/lib/notifications/send-email';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: 'jwt' },
@@ -75,13 +74,5 @@ declare module 'next-auth' {
       role: Role;
       isVerified: boolean;
     };
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT {
-    id: string;
-    role: Role;
-    isVerified: boolean;
   }
 }
