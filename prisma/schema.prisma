@@ -1,0 +1,372 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin", "darwin-arm64"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AuditStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum PlatformHint {
+  AUTO
+  WORDPRESS
+  GHL
+  REACT
+  NEXTJS
+  NODE
+  SHOPIFY
+  OTHER
+}
+
+enum PlanTier {
+  FREE
+  STARTER
+  PRO
+  AGENCY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+enum ScanFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum NotificationType {
+  SEO_DROP
+  SEO_IMPROVE
+  GEO_CHANGE
+  AEO_CHANGE
+  RANKING_UP
+  RANKING_DOWN
+  SECURITY_ALERT
+  GENERAL
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  BOTH
+}
+
+// ─── Auth & Users ─────────────────────────────────────────────────────────────
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  password              String?
+  name                  String?
+  image                 String?
+  role                  Role      @default(CUSTOMER)
+  emailVerified         Boolean   @default(false)
+  onboardingCompleted   Boolean   @default(false)
+  verifyToken           String?   @unique
+  resetToken            String?   @unique
+  resetTokenExp         DateTime?
+  timezone              String    @default("UTC")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  accounts        Account[]
+  audits          Audit[]
+  subscription    Subscription?
+  monitoredSites  MonitoredSite[]
+  notifications   Notification[]
+  securityLogs    SecurityLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// ─── Audits ───────────────────────────────────────────────────────────────────
+
+model Audit {
+  id               String       @id @default(cuid())
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url              String
+  platformHint     PlatformHint @default(AUTO)
+  status           AuditStatus  @default(PENDING)
+
+  overallScore     Int?
+  onPageScore      Int?
+  offPageScore     Int?
+  geoScore         Int?
+  aeoScore         Int?
+  worldwideSeoScore Int?
+  pageSpeedScore   Int?
+  securityScore    Int?
+  confidenceScore  Int?
+
+  report           Json?
+  suggestions      Json?
+  detectedCms      String?
+  industryHint     String?
+  errorMessage     String?
+  aiSuggestionsStatus String? @default("pending") // 'pending' | 'running' | 'done' | 'skipped'
+
+  verificationHash String?
+  certificateId    String?  @unique
+  shareToken       String?  @unique
+
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  snapshots        AuditSnapshot[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([certificateId])
+  @@index([shareToken])
+  @@index([url])
+}
+
+// ─── Billing ──────────────────────────────────────────────────────────────────
+
+model Plan {
+  id              String        @id @default(cuid())
+  tier            PlanTier      @unique
+  name            String
+  priceMonthly    Int
+  auditsPerMonth  Int
+  monitoredSites  Int
+  keywordsPerSite Int
+  historyDays     Int
+  maxScanFreq     ScanFrequency @default(MONTHLY)
+  emailAlerts     Boolean       @default(false)
+  pdfExport       Boolean       @default(false)
+  whiteLabel      Boolean       @default(false)
+  dualMalware     Boolean       @default(false)
+  multiPageCrawl  Boolean       @default(false)
+  rankingTracker  Boolean       @default(false)
+  shareableReport Boolean       @default(false)
+  aiSuggestions   Boolean       @default(false)
+  stripePriceId   String?       @unique
+
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 Plan               @relation(fields: [planId], references: [id])
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  auditsUsedThisPeriod Int                @default(0)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@index([currentPeriodEnd])
+}
+
+model StripeEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime @default(now())
+
+  @@index([stripeEventId])
+}
+
+// ─── Monitoring ───────────────────────────────────────────────────────────────
+
+model MonitoredSite {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url             String
+  name            String?
+  platformHint    PlatformHint  @default(AUTO)
+  scanFrequency   ScanFrequency @default(WEEKLY)
+  alertOnSeo      Boolean       @default(true)
+  alertOnGeo      Boolean       @default(true)
+  alertOnAeo      Boolean       @default(true)
+  alertOnRanking  Boolean       @default(true)
+  alertOnSecurity Boolean       @default(true)
+  alertThreshold  Int           @default(5)
+  lastAuditId     String?
+  isActive        Boolean       @default(true)
+  nextScanAt      DateTime?
+  createdAt       DateTime      @default(now())
+
+  keywords        Keyword[]
+  snapshots       AuditSnapshot[]
+  notifications   Notification[]
+  competitors     CompetitorDomain[]
+
+  @@index([userId])
+  @@index([isActive, nextScanAt])
+}
+
+model Keyword {
+  id               String        @id @default(cuid())
+  monitoredSiteId  String
+  monitoredSite    MonitoredSite @relation(fields: [monitoredSiteId], references: [id], onDelete: Cascade)
+  keyword          String
+  country          String        @default("us")
+  language         String        @default("en")
+  device           String        @default("desktop")
+  lastPosition     Int?
+  previousPosition Int?
+  hasFeaturedSnippet  Boolean   @default(false)
+  ownsFeaturedSnippet Boolean   @default(false)
+  inAIOverview        Boolean   @default(false)
+  inLocalPack         Boolean   @default(false)
+  serpFeatures        Json?
+  volatility          String?
+  trend               String?
+  avgPosition         Float?
+  lastCheckedAt    DateTime?
+  createdAt        DateTime      @default(now())
+
+  rankingHistory   KeywordSnapshot[]
+
+  @@index([monitoredSiteId])
+  @@unique([monitoredSiteId, keyword, country, device])
+}
+
+model KeywordSnapshot {
+  id           String   @id @default(cuid())
+  keywordId    String
+  keyword      Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  position     Int?
+  serpFeatures Json?
+  checkedAt    DateTime @default(now())
+
+  @@index([keywordId, checkedAt(sort: Desc)])
+}
+
+model CompetitorDomain {
+  id              String        @id @default(cuid())
+  monitoredSiteId String
+  monitoredSite   MonitoredSite @relation(fields: [monitoredSiteId], references: [id], onDelete: Cascade)
+  domain          String
+  createdAt       DateTime      @default(now())
+
+  @@index([monitoredSiteId])
+}
+
+model AuditSnapshot {
+  id               String        @id @default(cuid())
+  monitoredSiteId  String
+  monitoredSite    MonitoredSite @relation(fields: [monitoredSiteId], references: [id], onDelete: Cascade)
+  auditId          String
+  audit            Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  onPageScore      Int?
+  offPageScore     Int?
+  geoScore         Int?
+  aeoScore         Int?
+  worldwideSeoScore Int?
+  overallScore     Int?
+  pageSpeedMobile  Int?
+  malwareStatus    String?
+  createdAt        DateTime      @default(now())
+
+  @@index([monitoredSiteId, createdAt(sort: Desc)])
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id              String              @id @default(cuid())
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monitoredSiteId String?
+  monitoredSite   MonitoredSite?      @relation(fields: [monitoredSiteId], references: [id], onDelete: SetNull)
+  type            NotificationType
+  channel         NotificationChannel @default(BOTH)
+  title           String
+  message         String
+  metadata        Json?
+  isRead          Boolean             @default(false)
+  emailSent       Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@index([emailSent, createdAt])
+}
+
+// ─── Notification Settings ────────────────────────────────────────────────────
+
+model NotificationSettings {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  emailAlerts       Boolean  @default(true)
+  inAppAlerts       Boolean  @default(true)
+  seoAlerts         Boolean  @default(true)
+  rankingAlerts     Boolean  @default(true)
+  securityAlerts    Boolean  @default(true)
+  geoAlerts         Boolean  @default(true)
+  digestFrequency   String   @default("weekly")  // 'daily' | 'weekly' | 'off'
+  quietHoursStart   Int?     // hour 0-23 in user's timezone
+  quietHoursEnd     Int?
+  quietDaysOnly     Boolean  @default(false)      // Mon-Fri only
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ─── Security & Audit Log ─────────────────────────────────────────────────────
+
+model SecurityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ip        String
+  event     String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+  @@index([userId, createdAt])
+  @@index([event, createdAt])
+}
