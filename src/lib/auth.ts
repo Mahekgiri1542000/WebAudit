@@ -103,8 +103,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token) {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (session.user as any).emailVerified = token.emailVerified as boolean;
+        session.user.isEmailVerified = token.emailVerified as boolean;
       }
       return session;
     },
@@ -119,9 +118,12 @@ declare module 'next-auth' {
       name: string | null;
       image: string | null;
       role: Role;
-      emailVerified: boolean;
+      isEmailVerified: boolean;
     };
   }
+}
+
+declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
     role: Role;
