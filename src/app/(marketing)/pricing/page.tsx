@@ -1,4 +1,6 @@
+'use client';
 import Link from 'next/link';
+import { useState } from 'react';
 import { PLAN_FEATURES } from '@/lib/billing/plans';
 
 const FEATURES = [
@@ -11,6 +13,7 @@ const FEATURES = [
   { label: 'AI suggestions', key: 'aiSuggestions' as const },
   { label: 'Dual malware scan', key: 'dualMalware' as const },
   { label: 'Shareable reports', key: 'shareableReport' as const },
+  { label: 'White label', key: 'whiteLabel' as const },
 ];
 
 const PLANS = [
@@ -19,6 +22,74 @@ const PLANS = [
   PLAN_FEATURES.PRO,
   PLAN_FEATURES.AGENCY,
 ] as const;
+
+function MobileComparison() {
+  const [active, setActive] = useState(0);
+  const plan = PLANS[active];
+
+  return (
+    <div className="md:hidden">
+      {/* Plan tabs */}
+      <div className="flex rounded-xl border border-slate-800 overflow-hidden mb-4">
+        {PLANS.map((p, i) => (
+          <button
+            key={p.tier}
+            onClick={() => setActive(i)}
+            className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+              active === i
+                ? p.tier === 'PRO' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-white'
+                : 'bg-slate-900 text-slate-500'
+            }`}
+          >
+            {p.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Feature list for selected plan */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <div className={`px-5 py-4 border-b border-slate-800 ${plan.tier === 'PRO' ? 'bg-blue-500/10' : ''}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-white font-bold text-lg">{plan.name}</h3>
+              <p className="text-slate-400 text-sm">
+                {plan.priceMonthly === 0 ? 'Free forever' : `$${(plan.priceMonthly / 100).toFixed(0)}/month`}
+              </p>
+            </div>
+            <Link
+              href="/register"
+              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
+                plan.tier === 'PRO' ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'
+              }`}
+            >
+              {plan.priceMonthly === 0 ? 'Start free' : 'Get started'}
+            </Link>
+          </div>
+        </div>
+
+        <div className="divide-y divide-slate-800/60">
+          {FEATURES.map((feat) => {
+            const val = plan[feat.key];
+            return (
+              <div key={feat.key} className="flex items-center justify-between px-5 py-3">
+                <span className="text-slate-400 text-sm">{feat.label}</span>
+                {typeof val === 'boolean' ? (
+                  val
+                    ? <span className="text-green-400 font-bold">✓</span>
+                    : <span className="text-slate-700">—</span>
+                ) : (
+                  <span className="text-white text-sm font-semibold">
+                    {feat.format ? feat.format(val as number) : String(val)}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PricingPage() {
   return (
@@ -32,7 +103,7 @@ export default function PricingPage() {
           <p className="text-slate-400 text-base sm:text-lg">Start free. Upgrade when you need more.</p>
         </div>
 
-        {/* Plan cards — 1 col mobile, 2 col sm, 4 col lg */}
+        {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-14">
           {PLANS.map((plan) => {
             const isPro = plan.tier === 'PRO';
@@ -46,7 +117,6 @@ export default function PricingPage() {
                     Most Popular
                   </div>
                 )}
-
                 <div className="mb-4">
                   <h3 className="font-bold text-white text-lg mb-1">{plan.name}</h3>
                   <p className="text-3xl font-black text-white">
@@ -54,7 +124,6 @@ export default function PricingPage() {
                     {plan.priceMonthly > 0 && <span className="text-slate-500 text-base font-normal">/mo</span>}
                   </p>
                 </div>
-
                 <ul className="space-y-1.5 text-sm text-slate-400 mb-6 flex-1">
                   <li className="font-semibold text-white">
                     {plan.auditsPerMonth === -1 ? 'Unlimited audits' : `${plan.auditsPerMonth} audits/mo`}
@@ -68,7 +137,6 @@ export default function PricingPage() {
                   {plan.shareableReport && <li className="text-green-400">✓ Shareable reports</li>}
                   {plan.whiteLabel && <li className="text-green-400">✓ White label</li>}
                 </ul>
-
                 {plan.priceMonthly === 0 ? (
                   <Link href="/register" className="block w-full py-2.5 text-center text-sm font-semibold rounded-xl transition bg-slate-800 hover:bg-slate-700 text-white">
                     Get started free
@@ -83,40 +151,41 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* Feature comparison table — scrollable on mobile */}
-        <h2 className="text-xl font-bold text-white mb-4 text-center">Full feature comparison</h2>
-        <p className="text-slate-500 text-xs text-center mb-4 sm:hidden">← Scroll to see all plans →</p>
+        {/* Feature comparison */}
+        <h2 className="text-xl font-bold text-white mb-5 text-center">Full feature comparison</h2>
 
-        <div className="overflow-x-auto -mx-4 sm:mx-0 rounded-none sm:rounded-2xl border border-slate-800">
-          <table className="w-full text-sm" style={{ minWidth: '480px' }}>
+        {/* Mobile: tabbed plan view */}
+        <MobileComparison />
+
+        {/* Desktop: full table */}
+        <div className="hidden md:block bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-800 bg-slate-900">
-                <th className="px-4 sm:px-5 py-4 text-left text-slate-400 font-medium" style={{ width: '36%' }}>Feature</th>
+              <tr className="border-b border-slate-800">
+                <th className="px-5 py-4 text-left text-slate-400 font-medium w-1/3">Feature</th>
                 {PLANS.map((p) => (
-                  <th key={p.tier} className={`px-3 sm:px-4 py-4 text-center font-bold text-xs sm:text-sm ${p.tier === 'PRO' ? 'text-blue-400' : 'text-white'}`}>
+                  <th key={p.tier} className={`px-4 py-4 text-center font-bold ${p.tier === 'PRO' ? 'text-blue-400' : 'text-white'}`}>
                     {p.name}
                     {p.tier === 'PRO' && <span className="block text-[10px] text-blue-500 font-normal">Popular</span>}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-slate-900/50">
+            <tbody>
               {FEATURES.map((feat, i) => (
-                <tr key={feat.key} className={`border-b border-slate-800/50 hover:bg-slate-800/30 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                  <td className="px-4 sm:px-5 py-3 text-slate-400 text-xs sm:text-sm">{feat.label}</td>
+                <tr key={feat.key} className={`border-b border-slate-800/50 hover:bg-slate-800/20 ${i % 2 === 1 ? 'bg-slate-900/40' : ''}`}>
+                  <td className="px-5 py-3 text-slate-400">{feat.label}</td>
                   {PLANS.map((p) => {
                     const val = p[feat.key];
                     let display: React.ReactNode;
                     if (typeof val === 'boolean') {
                       display = val
-                        ? <span className="text-green-400 text-base">✓</span>
-                        : <span className="text-slate-700 text-base">—</span>;
+                        ? <span className="text-green-400 text-lg">✓</span>
+                        : <span className="text-slate-700 text-lg">—</span>;
                     } else {
-                      display = <span className="text-white text-xs sm:text-sm font-medium">{feat.format ? feat.format(val as number) : String(val)}</span>;
+                      display = <span className="text-white font-medium">{feat.format ? feat.format(val as number) : String(val)}</span>;
                     }
-                    return (
-                      <td key={p.tier} className="px-3 sm:px-4 py-3 text-center">{display}</td>
-                    );
+                    return <td key={p.tier} className="px-4 py-3 text-center">{display}</td>;
                   })}
                 </tr>
               ))}
@@ -129,22 +198,10 @@ export default function PricingPage() {
           <h2 className="text-xl font-bold text-white mb-6 text-center">Common questions</h2>
           <div className="space-y-3">
             {[
-              {
-                q: 'Can I cancel anytime?',
-                a: 'Yes — cancel from your billing dashboard, no questions asked. You keep access until the end of your billing period.',
-              },
-              {
-                q: 'What counts as one audit?',
-                a: 'One audit = one URL analyzed. Running the same URL again counts as a second audit. Your monthly count resets at the start of each billing cycle.',
-              },
-              {
-                q: 'Do you offer refunds?',
-                a: "We offer a full refund within 7 days if you're not satisfied. Contact support with your email address.",
-              },
-              {
-                q: 'What AI model powers the suggestions?',
-                a: 'Claude Opus by Anthropic — one of the most capable models available. It reads your actual page content and generates site-specific fixes, not templates.',
-              },
+              { q: 'Can I cancel anytime?', a: 'Yes — cancel from your billing dashboard, no questions asked. You keep access until the end of your billing period.' },
+              { q: 'What counts as one audit?', a: 'One audit = one URL analyzed. Running the same URL again counts as a second audit. Your monthly count resets at the start of each billing cycle.' },
+              { q: 'Do you offer refunds?', a: "We offer a full refund within 7 days if you're not satisfied. Contact support with your email address." },
+              { q: 'What AI model powers the suggestions?', a: 'Claude Opus by Anthropic — one of the most capable models available. It reads your actual page content and generates site-specific fixes, not templates.' },
             ].map((item) => (
               <details key={item.q} className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 group">
                 <summary className="text-white font-medium cursor-pointer flex justify-between items-center gap-4 text-sm sm:text-base">
